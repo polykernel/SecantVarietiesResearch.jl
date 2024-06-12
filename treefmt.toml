@@ -1,0 +1,5 @@
+[formatter.julia]
+command = "julia"
+# Hack to workaround command needing to be an executable
+options = [ "-e \"using JuliaFormatter; format(ARGS) ? exit(0) : exit(1)\"" ]
+includes = [ "*.jl" ]
