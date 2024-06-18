@@ -4,23 +4,17 @@ function monomials(R::MPolyRing, D::ToricDivisor)
   P = polyhedron(D)
   S = cox_ring(R, X)
   degs = matrix(ZZ, rays(X))
-  coeffs = matrix(ZZ, n_rays(X), 1, coefficients(D))
-  points = vec(lattice_points(P))
+  coeffs = matrix(coefficients(D))
+  lat_points = lattice_points(P)
   # the stack blows up if we don't coerce the matrix element type from ZZRingElement to Int
-  monomials = [S([1], [vec(Matrix{Int}(degs * p + coeffs))]) for p in points]
+  monomials = [S([1], [vec(collect(Int, degs * p + coeffs))]) for p in lat_points]
   return monomials
 end
 
 function monomials(D::ToricDivisor)
   X = toric_variety(D)
-  P = polyhedron(D)
-  S = cox_ring(X)
-  degs = matrix(ZZ, rays(X))
-  coeffs = matrix(ZZ, n_rays(X), 1, coefficients(D))
-  points = vec(lattice_points(P))
-  # the stack blows up if we don't coerce the matrix element type from ZZRingElement to Int
-  monomials = [S([1], [vec(Matrix{Int}(degs * p + coeffs))]) for p in points]
-  return monomials
+  S, _ = polynomial_ring(coefficient_ring(X), coordinate_names(X), cached=false)
+  return monomials(S, D)
 end
 
 function expected_dimension(s::Int, I::MPolyIdeal)
@@ -31,8 +25,33 @@ end
 
 function expected_dimension(s::Int, D::ToricDivisor)
   n = length(lattice_points(polyhedron(D))) - 1
-  d = dim(variety(D))
+  d = dim(toric_variety(D))
   return min(n, (s+1)*d + s)
+end
+
+function vanishing_ideal(K::Ring, D::ToricDivisor)
+  X = toric_variety(D)
+
+  R, r_gens = graded_polynomial_ring(K, ["x_$i" for i in 0:length(coordinate_names(X))-1], cached=false)
+
+  L = monomials(R, D)
+
+  BR = parent(L[1])
+  mo = neginvlex(BR)
+  sort!(L, lt=(x, y) -> cmp(mo, x, y) == -1)
+
+  S, _ = graded_polynomial_ring(K, ["x_$i" for i in 0:length(L)-1], cached=false)
+
+  phi = hom(S, R, [evaluate(l, r_gens) for l in L])
+  I = kernel(phi)
+
+  return I
+end
+
+function vanishing_ideal(D::ToricDivisor) 
+  X = toric_variety(D)
+  R = coefficient_ring(X)
+  return vanishing_ideal(R, D)
 end
 
 # Implementation based on definitiion of secant ideal via a change of coordinate on (s+1)-th
@@ -55,8 +74,27 @@ function secant_ideal(s::Int, I::MPolyIdeal)
   return ideal(minimal_generating_set(psi(eliminate(J, vec(y[:, 1:s])))))
 end
 
-secant_ideal(s::Int, ntv::NormalToricVariety) = secant_ideal(s, toric_ideal(ntv))
+secant_ideal(K::Ring, s::Int, D::ToricDivisor) = secant_ideal(s, vanishing_ideal(K, D))
+secant_ideal(s::Int, D::ToricDivisor) = secant_ideal(s, vanishing_ideal(D))
 
-function terracini_dimension(I::MPolyIdeal)
+function _homogenize_matrix(mat::AbstractMatrix{T}) where T <: Number
+  local col_sum = sum.(eachcol(mat))
+  local m = maximum(col_sum)
+  return vcat(reshape(fill(m, ncols(mat)) - col_sum, 1, :), mat)
+end
 
+function terracini_dimension(s::Int, D::ToricDivisor)
+  d = dim(toric_variety(D))
+  P = polyhedron(D)
+  points = Int.(reduce(hcat, lattice_points(P)))
+  min_point = [minimum(point) for point in eachrow(points)]
+  T = reduce(hcat, fill(min_point, ncols(points)))
+  A = _homogenize_matrix(points - T)
+  KK = GF(32003)
+  R, _ = graded_polynomial_ring(KK, ["x_$i" for i in 0:d], cached=false)
+  M = [R([1], [copy(exp)]) for exp in eachcol(A)]
+  random_points = [[rand(KK) for _ in 0:d] for _ in 0:s]
+  jac_mat = jacobian_matrix(M)
+  tangent_span = reduce(vcat, [map_entries(p -> evaluate(p, points), jac_mat) for points in random_points])
+  return rank(tangent_span) - 1
 end
