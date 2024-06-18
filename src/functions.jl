@@ -56,3 +56,7 @@ function secant_ideal(s::Int, I::MPolyIdeal)
 end
 
 secant_ideal(s::Int, ntv::NormalToricVariety) = secant_ideal(s, toric_ideal(ntv))
+
+function terracini_dimension(I::MPolyIdeal)
+
+end
