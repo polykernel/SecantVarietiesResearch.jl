@@ -1,0 +1,17 @@
+{
+  "name": "julia-devenv",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/julialang/devcontainer-features/julia:1": {
+      "channel": "release"
+    }
+  },
+  "containerUser": "vscode",
+  "runArgs": [
+    "--userns=keep-id",
+    "--security-opt=label=disable"
+  ],
+  "containerEnv": {
+    "HOME": "/home/vscode"
+  }
+}
