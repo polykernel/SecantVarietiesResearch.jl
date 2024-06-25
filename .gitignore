@@ -3,4 +3,5 @@
 /Manifest.toml
 /.direnv/
 /.devenv/
+/.vscode/
 /.pre-commit-config.yaml

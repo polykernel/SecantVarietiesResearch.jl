@@ -48,7 +48,7 @@ function vanishing_ideal(K::Ring, D::ToricDivisor)
   return I
 end
 
-function vanishing_ideal(D::ToricDivisor) 
+function vanishing_ideal(D::ToricDivisor)
   X = toric_variety(D)
   R = coefficient_ring(X)
   return vanishing_ideal(R, D)
@@ -77,23 +77,26 @@ end
 secant_ideal(K::Ring, s::Int, D::ToricDivisor) = secant_ideal(s, vanishing_ideal(K, D))
 secant_ideal(s::Int, D::ToricDivisor) = secant_ideal(s, vanishing_ideal(D))
 
-function _homogenize_matrix(mat::AbstractMatrix{T}) where T <: Number
-  local col_sum = sum.(eachcol(mat))
-  local m = maximum(col_sum)
-  return vcat(reshape(fill(m, ncols(mat)) - col_sum, 1, :), mat)
-end
 
-function terracini_dimension(s::Int, D::ToricDivisor)
+_random_fieldelem(KK::RealField, args...) = rand(KK, args...)
+_random_fieldelem(KK::T, args...) where T <: Union{FqField, FracField} = rand(make(KK, args...))
+
+function terracini_dimension(s::Int, D::ToricDivisor, KK::Union{FqField, FracField, RealField}, args...)
   d = dim(toric_variety(D))
   P = polyhedron(D)
   points = Int.(reduce(hcat, lattice_points(P)))
-  min_point = [minimum(point) for point in eachrow(points)]
-  T = reduce(hcat, fill(min_point, ncols(points)))
-  A = _homogenize_matrix(points - T)
-  KK = GF(32003)
+  A = begin
+    c = ncols(points)
+    min_point = [minimum(point) for point in eachrow(points)]
+    T = reduce(hcat, fill(min_point, c))
+    mat = points - T
+    col_sum = sum.(eachcol(mat))
+    m = maximum(col_sum)
+    vcat(reshape(fill(m, c) - col_sum, 1, :), mat)
+  end
   R, _ = graded_polynomial_ring(KK, ["x_$i" for i in 0:d], cached=false)
   M = [R([1], [copy(exp)]) for exp in eachcol(A)]
-  random_points = [[rand(KK) for _ in 0:d] for _ in 0:s]
+  random_points = [[_random_fieldelem(KK, args...) for _ in 0:d] for _ in 0:s]
   jac_mat = jacobian_matrix(M)
   tangent_span = reduce(vcat, [map_entries(p -> evaluate(p, points), jac_mat) for points in random_points])
   return rank(tangent_span) - 1
