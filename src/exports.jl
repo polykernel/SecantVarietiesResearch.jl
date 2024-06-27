@@ -5,5 +5,6 @@ export expected_dimension
 export monomials
 export secant_ideal
 export small_ample_toric_divisor
+export smooth_fano_toric_variety
 export terracini_dimension
 export vanishing_ideal
